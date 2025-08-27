@@ -1,0 +1,310 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:banque-de-france-credit-check="http://www.mulesoft.org/schema/mule/banque-de-france-credit-check" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd 
+http://www.mulesoft.org/schema/mule/banque-de-france-credit-check http://www.mulesoft.org/schema/mule/banque-de-france-credit-check/current/mule-banque-de-france-credit-check.xsd">
+    <http:listener-config name="TMF696-Risk_Management-v4.0.0.oas-httpListenerConfig">
+        <http:listener-connection host="0.0.0.0" port="8081" />
+    </http:listener-config>
+    <apikit:config name="TMF696-Risk_Management-v4.0.0.oas-config" api="resource::d01ff9eb-da17-47cf-9ac6-a421357ddfdd:tmf-696-risk-management:4.0.1:oas:zip:TMF696-Risk_Management-v4.0.0.oas.yaml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+    <banque-de-france-credit-check:config name="BanqueDeFrance_creditCheck_Config" doc:name="BanqueDeFrance_creditCheck Config" doc:id="11d61747-3f30-4f15-9e00-dd61f6775141" property_host="bnf-solvabilite-7yyp41.wsyr1h-2.irl-e1.cloudhub.io" property_basePath="/api" property_protocol="HTTP" property_port="80"/>
+	<sub-flow name="partyRoleRiskAssesment" doc:id="e963f83a-27e9-4ae7-a4d6-e53bf479f870" >
+		<logger level="INFO" message="post:\partyRoleRiskAssessment:application\json:TMF696-Risk_Management-v4.0.0.oas-config" />
+		<ee:transform doc:name="Transform Message" doc:id="2ff2f0cf-d278-4ed9-9d5e-71d08a1f46e8">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<banque-de-france-credit-check:createsolvencycheck doc:name="createSolvencyCheck" doc:id="446a8ce4-7894-49d4-a8af-5ca783fe36ee" config-ref="BanqueDeFrance_creditCheck_Config">
+			<banque-de-france-credit-check:createsolvencycheck-request-data><![CDATA[#[output application/java
+---
+payload]]]></banque-de-france-credit-check:createsolvencycheck-request-data>
+		</banque-de-france-credit-check:createsolvencycheck>
+	</sub-flow>
+	<flow name="TMF696-Risk_Management-v4.0.0.oas-main">
+        <http:listener config-ref="TMF696-Risk_Management-v4.0.0.oas-httpListenerConfig" path="/api/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:router config-ref="TMF696-Risk_Management-v4.0.0.oas-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:BAD_REQUEST">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Bad request"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">400</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:METHOD_NOT_ALLOWED">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Method not allowed"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">405</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_ACCEPTABLE">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not acceptable"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">406</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:UNSUPPORTED_MEDIA_TYPE">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Unsupported media type"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">415</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_IMPLEMENTED">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not Implemented"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">501</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="TMF696-Risk_Management-v4.0.0.oas-console">
+        <http:listener config-ref="TMF696-Risk_Management-v4.0.0.oas-httpListenerConfig" path="/console/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:console config-ref="TMF696-Risk_Management-v4.0.0.oas-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="delete:\hub\(id):TMF696-Risk_Management-v4.0.0.oas-config">
+        <ee:transform doc:name="Transform Message">
+            <ee:variables>
+                <ee:set-variable variableName="id">attributes.uriParams.'id'</ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <logger level="INFO" message="delete:\hub\(id):TMF696-Risk_Management-v4.0.0.oas-config" />
+    </flow>
+    <flow name="delete:\partyRoleProductOfferingRiskAssessment\(id):TMF696-Risk_Management-v4.0.0.oas-config">
+        <ee:transform doc:name="Transform Message">
+            <ee:variables>
+                <ee:set-variable variableName="id">attributes.uriParams.'id'</ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <logger level="INFO" message="delete:\partyRoleProductOfferingRiskAssessment\(id):TMF696-Risk_Management-v4.0.0.oas-config" />
+    </flow>
+    <flow name="delete:\partyRoleRiskAssessment\(id):TMF696-Risk_Management-v4.0.0.oas-config">
+        <ee:transform doc:name="Transform Message">
+            <ee:variables>
+                <ee:set-variable variableName="id">attributes.uriParams.'id'</ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <logger level="INFO" message="delete:\partyRoleRiskAssessment\(id):TMF696-Risk_Management-v4.0.0.oas-config" />
+    </flow>
+    <flow name="delete:\productOfferingRiskAssessment\(id):TMF696-Risk_Management-v4.0.0.oas-config">
+        <ee:transform doc:name="Transform Message">
+            <ee:variables>
+                <ee:set-variable variableName="id">attributes.uriParams.'id'</ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <logger level="INFO" message="delete:\productOfferingRiskAssessment\(id):TMF696-Risk_Management-v4.0.0.oas-config" />
+    </flow>
+    <flow name="delete:\productOrderRiskAssessment\(id):TMF696-Risk_Management-v4.0.0.oas-config">
+        <ee:transform doc:name="Transform Message">
+            <ee:variables>
+                <ee:set-variable variableName="id">attributes.uriParams.'id'</ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <logger level="INFO" message="delete:\productOrderRiskAssessment\(id):TMF696-Risk_Management-v4.0.0.oas-config" />
+    </flow>
+    <flow name="delete:\shoppingCartRiskAssessment\(id):TMF696-Risk_Management-v4.0.0.oas-config">
+        <ee:transform doc:name="Transform Message">
+            <ee:variables>
+                <ee:set-variable variableName="id">attributes.uriParams.'id'</ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <logger level="INFO" message="delete:\shoppingCartRiskAssessment\(id):TMF696-Risk_Management-v4.0.0.oas-config" />
+    </flow>
+    <flow name="get:\partyRoleProductOfferingRiskAssessment:TMF696-Risk_Management-v4.0.0.oas-config">
+        <logger level="INFO" message="get:\partyRoleProductOfferingRiskAssessment:TMF696-Risk_Management-v4.0.0.oas-config" />
+    </flow>
+    <flow name="get:\partyRoleProductOfferingRiskAssessment\(id):TMF696-Risk_Management-v4.0.0.oas-config">
+        <ee:transform doc:name="Transform Message">
+            <ee:variables>
+                <ee:set-variable variableName="id">attributes.uriParams.'id'</ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <logger level="INFO" message="get:\partyRoleProductOfferingRiskAssessment\(id):TMF696-Risk_Management-v4.0.0.oas-config" />
+    </flow>
+    <flow name="get:\partyRoleRiskAssessment:TMF696-Risk_Management-v4.0.0.oas-config">
+        <logger level="INFO" message="get:\partyRoleRiskAssessment:TMF696-Risk_Management-v4.0.0.oas-config" />
+    </flow>
+    <flow name="get:\partyRoleRiskAssessment\(id):TMF696-Risk_Management-v4.0.0.oas-config">
+        <ee:transform doc:name="Transform Message">
+            <ee:variables>
+                <ee:set-variable variableName="id">attributes.uriParams.'id'</ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <logger level="INFO" message="get:\partyRoleRiskAssessment\(id):TMF696-Risk_Management-v4.0.0.oas-config" />
+    </flow>
+    <flow name="get:\productOfferingRiskAssessment:TMF696-Risk_Management-v4.0.0.oas-config">
+        <logger level="INFO" message="get:\productOfferingRiskAssessment:TMF696-Risk_Management-v4.0.0.oas-config" />
+    </flow>
+    <flow name="get:\productOfferingRiskAssessment\(id):TMF696-Risk_Management-v4.0.0.oas-config">
+        <ee:transform doc:name="Transform Message">
+            <ee:variables>
+                <ee:set-variable variableName="id">attributes.uriParams.'id'</ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <logger level="INFO" message="get:\productOfferingRiskAssessment\(id):TMF696-Risk_Management-v4.0.0.oas-config" />
+    </flow>
+    <flow name="get:\productOrderRiskAssessment:TMF696-Risk_Management-v4.0.0.oas-config">
+        <logger level="INFO" message="get:\productOrderRiskAssessment:TMF696-Risk_Management-v4.0.0.oas-config" />
+    </flow>
+    <flow name="get:\productOrderRiskAssessment\(id):TMF696-Risk_Management-v4.0.0.oas-config">
+        <ee:transform doc:name="Transform Message">
+            <ee:variables>
+                <ee:set-variable variableName="id">attributes.uriParams.'id'</ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <logger level="INFO" message="get:\productOrderRiskAssessment\(id):TMF696-Risk_Management-v4.0.0.oas-config" />
+    </flow>
+    <flow name="get:\shoppingCartRiskAssessment:TMF696-Risk_Management-v4.0.0.oas-config">
+        <logger level="INFO" message="get:\shoppingCartRiskAssessment:TMF696-Risk_Management-v4.0.0.oas-config" />
+    </flow>
+    <flow name="get:\shoppingCartRiskAssessment\(id):TMF696-Risk_Management-v4.0.0.oas-config">
+        <ee:transform doc:name="Transform Message">
+            <ee:variables>
+                <ee:set-variable variableName="id">attributes.uriParams.'id'</ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <logger level="INFO" message="get:\shoppingCartRiskAssessment\(id):TMF696-Risk_Management-v4.0.0.oas-config" />
+    </flow>
+    <flow name="post:\hub:application\json:TMF696-Risk_Management-v4.0.0.oas-config">
+        <logger level="INFO" message="post:\hub:application\json:TMF696-Risk_Management-v4.0.0.oas-config" />
+    </flow>
+    <flow name="post:\listener\partyRoleProductOfferingRiskAssessmentCreateEvent:application\json:TMF696-Risk_Management-v4.0.0.oas-config">
+        <logger level="INFO" message="post:\listener\partyRoleProductOfferingRiskAssessmentCreateEvent:application\json:TMF696-Risk_Management-v4.0.0.oas-config" />
+    </flow>
+    <flow name="post:\listener\partyRoleProductOfferingRiskAssessmentDeleteEvent:application\json:TMF696-Risk_Management-v4.0.0.oas-config">
+        <logger level="INFO" message="post:\listener\partyRoleProductOfferingRiskAssessmentDeleteEvent:application\json:TMF696-Risk_Management-v4.0.0.oas-config" />
+    </flow>
+    <flow name="post:\listener\partyRoleProductOfferingRiskAssessmentStatusChangeEvent:application\json:TMF696-Risk_Management-v4.0.0.oas-config">
+        <logger level="INFO" message="post:\listener\partyRoleProductOfferingRiskAssessmentStatusChangeEvent:application\json:TMF696-Risk_Management-v4.0.0.oas-config" />
+    </flow>
+    <flow name="post:\listener\partyRoleRiskAssessmentCreateEvent:application\json:TMF696-Risk_Management-v4.0.0.oas-config">
+        <logger level="INFO" message="post:\listener\partyRoleRiskAssessmentCreateEvent:application\json:TMF696-Risk_Management-v4.0.0.oas-config" />
+    </flow>
+    <flow name="post:\listener\partyRoleRiskAssessmentDeleteEvent:application\json:TMF696-Risk_Management-v4.0.0.oas-config">
+        <logger level="INFO" message="post:\listener\partyRoleRiskAssessmentDeleteEvent:application\json:TMF696-Risk_Management-v4.0.0.oas-config" />
+    </flow>
+    <flow name="post:\listener\partyRoleRiskAssessmentStatusChangeEvent:application\json:TMF696-Risk_Management-v4.0.0.oas-config">
+        <logger level="INFO" message="post:\listener\partyRoleRiskAssessmentStatusChangeEvent:application\json:TMF696-Risk_Management-v4.0.0.oas-config" />
+    </flow>
+    <flow name="post:\listener\productOfferingRiskAssessmentCreateEvent:application\json:TMF696-Risk_Management-v4.0.0.oas-config">
+        <logger level="INFO" message="post:\listener\productOfferingRiskAssessmentCreateEvent:application\json:TMF696-Risk_Management-v4.0.0.oas-config" />
+    </flow>
+    <flow name="post:\listener\productOfferingRiskAssessmentDeleteEvent:application\json:TMF696-Risk_Management-v4.0.0.oas-config">
+        <logger level="INFO" message="post:\listener\productOfferingRiskAssessmentDeleteEvent:application\json:TMF696-Risk_Management-v4.0.0.oas-config" />
+    </flow>
+    <flow name="post:\listener\productOfferingRiskAssessmentStatusChangeEvent:application\json:TMF696-Risk_Management-v4.0.0.oas-config">
+        <logger level="INFO" message="post:\listener\productOfferingRiskAssessmentStatusChangeEvent:application\json:TMF696-Risk_Management-v4.0.0.oas-config" />
+    </flow>
+    <flow name="post:\listener\productOrderRiskAssessmentCreateEvent:application\json:TMF696-Risk_Management-v4.0.0.oas-config">
+        <logger level="INFO" message="post:\listener\productOrderRiskAssessmentCreateEvent:application\json:TMF696-Risk_Management-v4.0.0.oas-config" />
+    </flow>
+    <flow name="post:\listener\productOrderRiskAssessmentDeleteEvent:application\json:TMF696-Risk_Management-v4.0.0.oas-config">
+        <logger level="INFO" message="post:\listener\productOrderRiskAssessmentDeleteEvent:application\json:TMF696-Risk_Management-v4.0.0.oas-config" />
+    </flow>
+    <flow name="post:\listener\productOrderRiskAssessmentStatusChangeEvent:application\json:TMF696-Risk_Management-v4.0.0.oas-config">
+        <logger level="INFO" message="post:\listener\productOrderRiskAssessmentStatusChangeEvent:application\json:TMF696-Risk_Management-v4.0.0.oas-config" />
+    </flow>
+    <flow name="post:\listener\shoppingCartRiskAssessmentCreateEvent:application\json:TMF696-Risk_Management-v4.0.0.oas-config">
+        <logger level="INFO" message="post:\listener\shoppingCartRiskAssessmentCreateEvent:application\json:TMF696-Risk_Management-v4.0.0.oas-config" />
+    </flow>
+    <flow name="post:\listener\shoppingCartRiskAssessmentDeleteEvent:application\json:TMF696-Risk_Management-v4.0.0.oas-config">
+        <logger level="INFO" message="post:\listener\shoppingCartRiskAssessmentDeleteEvent:application\json:TMF696-Risk_Management-v4.0.0.oas-config" />
+    </flow>
+    <flow name="post:\listener\shoppingCartRiskAssessmentStatusChangeEvent:application\json:TMF696-Risk_Management-v4.0.0.oas-config">
+        <logger level="INFO" message="post:\listener\shoppingCartRiskAssessmentStatusChangeEvent:application\json:TMF696-Risk_Management-v4.0.0.oas-config" />
+    </flow>
+    <flow name="post:\partyRoleProductOfferingRiskAssessment:application\json:TMF696-Risk_Management-v4.0.0.oas-config">
+        <logger level="INFO" message="post:\partyRoleProductOfferingRiskAssessment:application\json:TMF696-Risk_Management-v4.0.0.oas-config" />
+    </flow>
+    <flow name="post:\partyRoleRiskAssessment:application\json:TMF696-Risk_Management-v4.0.0.oas-config">
+		<flow-ref doc:name="Flow Reference" doc:id="81192254-9d6e-49d2-9911-0b5ea3d0f809" name="partyRoleRiskAssesment" />
+    </flow>
+    <flow name="post:\productOfferingRiskAssessment:application\json:TMF696-Risk_Management-v4.0.0.oas-config">
+        <logger level="INFO" message="post:\productOfferingRiskAssessment:application\json:TMF696-Risk_Management-v4.0.0.oas-config" />
+    </flow>
+    <flow name="post:\productOrderRiskAssessment:application\json:TMF696-Risk_Management-v4.0.0.oas-config">
+        <logger level="INFO" message="post:\productOrderRiskAssessment:application\json:TMF696-Risk_Management-v4.0.0.oas-config" />
+    </flow>
+    <flow name="post:\shoppingCartRiskAssessment:application\json:TMF696-Risk_Management-v4.0.0.oas-config">
+        <logger level="INFO" message="post:\shoppingCartRiskAssessment:application\json:TMF696-Risk_Management-v4.0.0.oas-config" />
+    </flow>
+</mule>
